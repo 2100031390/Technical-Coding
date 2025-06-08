@@ -15,92 +15,94 @@
 
 import java.util.*;
 
-public class AlienDictionary {
+public class AlienDict {
 
-    /**
-     * Determines the order of characters in an alien language given a sorted list
-     * of words.
-     * Uses topological sorting on the character precedence graph.
-     * 
-     * @param words Array of words sorted lexicographically in the alien language.
-     * @return String representing the character order or empty string if invalid.
-     */
-    public static String alienOrder(String[] words) {
-        Map<Character, Set<Character>> graph = new HashMap<>();
-        Map<Character, Integer> inDegree = new HashMap<>();
+    // Total lowercase letters
+    private static final int N = 26;
 
-        // Initialize graph nodes for all unique characters
-        for (String word : words) {
-            for (char c : word.toCharArray()) {
-                graph.putIfAbsent(c, new HashSet<>());
-                inDegree.putIfAbsent(c, 0);
-            }
-        }
+    // Convert character to index (e.g., 'a' -> 0)
+    private static int toIdx(char c) {
+        return c - 'a';
+    }
 
-        // Build edges based on the first differing character between adjacent words
+    // Convert index back to character (e.g., 0 -> 'a')
+    private static char toChar(int i) {
+        return (char) (i + 'a');
+    }
+
+    // Main function to find alien language order
+    public static String order(String[] words) {
+
+        // Create adjacency list for graph
+        LinkedList<Integer>[] adj = new LinkedList[N];
+        for (int i = 0; i < N; i++) adj[i] = new LinkedList<>();
+
+        // To store how many edges come to each node
+        int[] indeg = new int[N];
+
+        // To check which characters are used in input
+        boolean[] used = new boolean[N];
+
+        // Mark all characters that appear in words
+        for (String w : words)
+            for (char c : w.toCharArray())
+                used[toIdx(c)] = true;
+
+        // Build graph by comparing adjacent words
         for (int i = 0; i < words.length - 1; i++) {
-            String w1 = words[i];
-            String w2 = words[i + 1];
-            int minLen = Math.min(w1.length(), w2.length());
-            boolean foundOrder = false;
-            for (int j = 0; j < minLen; j++) {
-                char c1 = w1.charAt(j);
-                char c2 = w2.charAt(j);
-                if (c1 != c2) {
-                    if (!graph.get(c1).contains(c2)) {
-                        graph.get(c1).add(c2);
-                        inDegree.put(c2, inDegree.get(c2) + 1);
+            String a = words[i], b = words[i + 1];
+            int len = Math.min(a.length(), b.length());
+            boolean diff = false;
+
+            for (int j = 0; j < len; j++) {
+                int u = toIdx(a.charAt(j)), v = toIdx(b.charAt(j));
+                if (u != v) {
+                    if (!adj[u].contains(v)) {
+                        adj[u].add(v);       // Add edge u -> v
+                        indeg[v]++;          // Increase in-degree of v
                     }
-                    foundOrder = true;
+                    diff = true;
                     break;
                 }
             }
-            // Invalid case: prefix longer word before shorter word
-            if (!foundOrder && w1.length() > w2.length()) {
-                return "";
+
+            // If first word is longer but same as second, it's invalid
+            if (!diff && a.length() > b.length()) return "";
+        }
+
+        // Do topological sort using BFS (Kahn's algorithm)
+        Queue<Integer> q = new LinkedList<>();
+        for (int i = 0; i < N; i++)
+            if (used[i] && indeg[i] == 0)
+                q.add(i); // Add all nodes with 0 in-degree
+
+        StringBuilder ans = new StringBuilder();
+        int seen = 0, total = 0;
+        for (boolean b : used) if (b) total++;
+
+        while (!q.isEmpty()) {
+            int u = q.poll();
+            ans.append(toChar(u));
+            seen++;
+            for (int v : adj[u]) {
+                if (--indeg[v] == 0) q.add(v); // Add to queue when in-degree becomes 0
             }
         }
 
-        // Perform topological sort using Kahn's algorithm
-        Queue<Character> queue = new LinkedList<>();
-        for (char c : inDegree.keySet()) {
-            if (inDegree.get(c) == 0) {
-                queue.offer(c);
-            }
-        }
-
-        StringBuilder order = new StringBuilder();
-        while (!queue.isEmpty()) {
-            char c = queue.poll();
-            order.append(c);
-            for (char neighbor : graph.get(c)) {
-                inDegree.put(neighbor, inDegree.get(neighbor) - 1);
-                if (inDegree.get(neighbor) == 0) {
-                    queue.offer(neighbor);
-                }
-            }
-        }
-
-        // If cycle detected (not all chars included), return empty string
-        if (order.length() != inDegree.size()) {
-            return "";
-        }
-
-        return order.toString();
+        // If all characters are seen, return answer
+        return seen == total ? ans.toString() : "";
     }
 
     // Sample test cases
     public static void main(String[] args) {
-        String[] words1 = { "wrt", "wrf", "er", "ett", "rftt" };
-        System.out.println("Order for words1: " + alienOrder(words1)); // Expected: "wertf"
+        String[] w1 = {"wrt", "wrf", "er", "ett", "rftt"};
+        String[] w2 = {"z", "x"};
+        String[] w3 = {"z", "x", "z"};
+        String[] w4 = {"abc", "ab"};
 
-        String[] words2 = { "z", "x" };
-        System.out.println("Order for words2: " + alienOrder(words2)); // Expected: "zx"
-
-        String[] words3 = { "z", "x", "z" };
-        System.out.println("Order for words3: " + alienOrder(words3)); // Expected: "" (invalid)
-
-        String[] words4 = { "abc", "ab" };
-        System.out.println("Order for words4: " + alienOrder(words4)); // Expected: "" (invalid)
+        System.out.println(order(w1)); // Output: wertf
+        System.out.println(order(w2)); // Output: zx
+        System.out.println(order(w3)); // Output: "" (invalid)
+        System.out.println(order(w4)); // Output: "" (invalid)
     }
 }
