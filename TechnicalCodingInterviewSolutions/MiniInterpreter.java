@@ -16,96 +16,83 @@
  * 
  * Includes test cases with sample input/output in main method.
  */
-
 import java.util.*;
 import java.util.regex.*;
+public class TinyLang {
 
-public class MiniInterpreter {
+    private final Map<String, Integer> vars = new HashMap<>();
 
-    private Map<String, Integer> variables = new HashMap<>();
-
-    public void interpret(List<String> lines) {
+    /** Run every line in order */
+    public void run(List<String> lines) {
         for (String line : lines) {
             line = line.trim();
             if (line.startsWith("let ")) {
-                handleLet(line);
+                doLet(line);
             } else if (line.startsWith("if ")) {
-                handleIf(line);
+                doIf(line);
             } else {
-                System.out.println("Unsupported statement: " + line);
+                System.out.println("?? " + line);
             }
         }
     }
 
-    private void handleLet(String line) {
-        // Syntax: let x = 5;
-        Pattern pattern = Pattern.compile("let\\s+(\\w+)\\s*=\\s*(\\d+)\\s*;");
-        Matcher matcher = pattern.matcher(line);
-        if (matcher.matches()) {
-            String var = matcher.group(1);
-            int value = Integer.parseInt(matcher.group(2));
-            variables.put(var, value);
-            System.out.println("Variable " + var + " set to " + value);
+    /** let x = 5; */
+    private void doLet(String line) {
+        Matcher m = Pattern.compile("let\\s+(\\w+)\\s*=\\s*(\\d+)\\s*;").matcher(line);
+        if (m.matches()) {
+            String name = m.group(1);
+            int val = Integer.parseInt(m.group(2));
+            vars.put(name, val);
+            System.out.println(name + " = " + val);
         } else {
-            System.out.println("Invalid let statement: " + line);
+            System.out.println("bad let: " + line);
         }
     }
 
-    private void handleIf(String line) {
-        // Syntax: if (x > 3) { ... }
-        Pattern pattern = Pattern.compile("if\\s*\\(([^)]+)\\)\\s*\\{([^}]*)\\}");
-        Matcher matcher = pattern.matcher(line);
-        if (matcher.matches()) {
-            String condition = matcher.group(1).trim();
-            String body = matcher.group(2).trim();
-            if (evaluateCondition(condition)) {
-                System.out.println("Condition true, executing body:");
-                interpret(Arrays.asList(body.split(";")));
-            } else {
-                System.out.println("Condition false, skipping body");
+    /** if (cond) { body; }  – body may hold multiple ‘;’-separated stmts */
+    private void doIf(String line) {
+        Matcher m = Pattern.compile("if\\s*\\(([^)]+)\\)\\s*\\{([^}]*)}").matcher(line);
+        if (m.matches()) {
+            String cond = m.group(1).trim();
+            String body = m.group(2).trim();
+            if (check(cond)) {
+                // split body by semicolons and recurse
+                run(Arrays.asList(body.split("\\s*;\\s*")));
             }
         } else {
-            System.out.println("Invalid if statement: " + line);
+            System.out.println("bad if: " + line);
         }
     }
 
-    private boolean evaluateCondition(String condition) {
-        // Support simple conditions like x > 3, x == 5, x < 10
-        Pattern pattern = Pattern.compile("(\\w+)\\s*(==|!=|>|<|>=|<=)\\s*(\\d+)");
-        Matcher matcher = pattern.matcher(condition);
-        if (matcher.matches()) {
-            String var = matcher.group(1);
-            String op = matcher.group(2);
-            int val = Integer.parseInt(matcher.group(3));
-            int varVal = variables.getOrDefault(var, 0);
-            switch (op) {
-                case "==":
-                    return varVal == val;
-                case "!=":
-                    return varVal != val;
-                case ">":
-                    return varVal > val;
-                case "<":
-                    return varVal < val;
-                case ">=":
-                    return varVal >= val;
-                case "<=":
-                    return varVal <= val;
-                default:
-                    return false;
-            }
+    /** Evaluate simple comparisons like x == 4 or x >= 2 */
+    private boolean check(String cond) {
+        Matcher m = Pattern.compile("(\\w+)\\s*(==|!=|>=|<=|>|<)\\s*(\\d+)").matcher(cond);
+        if (!m.matches()) return false;
+
+        int left = vars.getOrDefault(m.group(1), 0);
+        int right = Integer.parseInt(m.group(3));
+        String op = m.group(2);
+
+        switch (op) {
+            case "==": return left == right;
+            case "!=": return left != right;
+            case ">":  return left >  right;
+            case "<":  return left <  right;
+            case ">=": return left >= right;
+            case "<=": return left <= right;
         }
         return false;
     }
 
-    // Sample test cases
+    /** quick demo */
     public static void main(String[] args) {
-        MiniInterpreter interpreter = new MiniInterpreter();
-        List<String> program = Arrays.asList(
-                "let x = 5;",
-                "if (x > 3) { let y = 10; }",
-                "if (x < 3) { let z = 20; }",
-                "let a = 7;");
-        interpreter.interpret(program);
+        TinyLang t = new TinyLang();
+        t.run(Arrays.asList(
+            "let x = 5;",
+            "if (x > 3) { let y = 10; }",
+            "if (x < 3) { let z = 20; }",
+            "let a = 7;"
+        ));
     }
 }
+
