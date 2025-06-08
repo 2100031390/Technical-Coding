@@ -16,109 +16,97 @@
 
 import java.util.*;
 
-public class KnightsAndPortals {
+public class TeleportPath {
 
-    // State class to represent position, teleport usage, and distance traveled
-    static class State {
-        int row, col;
-        boolean teleportUsed;
-        int distance;
+    // Small helper class to keep track of a cell, travel distance, and teleport status
+    static class Node {
+        int r, c;       // row and col
+        boolean tp;     // true if teleport already used
+        int dist;       // steps taken so far
 
-        State(int row, int col, boolean teleportUsed, int distance) {
-            this.row = row;
-            this.col = col;
-            this.teleportUsed = teleportUsed;
-            this.distance = distance;
+        Node(int r, int c, boolean tp, int dist) {
+            this.r = r;
+            this.c = c;
+            this.tp = tp;
+            this.dist = dist;
         }
     }
 
     /**
-     * Finds the shortest path from top-left to bottom-right in the grid,
-     * with the ability to teleport once between any two empty cells.
-     * 
-     * @param grid 2D integer grid where 0 = empty cell, 1 = blocked cell
-     * @return shortest path length or -1 if no path exists
+     * Finds the shortest route from (0,0) to (R-1,C-1) in a grid.
+     * You may “jump” (teleport) once between any two empty cells (value 0).
+     * Returns -1 if the goal is impossible to reach.
      */
-    public static int shortestPath(int[][] grid) {
-        int rows = grid.length;
-        int cols = grid[0].length;
+    public static int shortest(int[][] grid) {
+        int R = grid.length, C = grid[0].length;
 
-        // Collect all empty cells for possible teleportation
-        List<int[]> emptyCells = new ArrayList<>();
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                if (grid[r][c] == 0) {
-                    emptyCells.add(new int[] { r, c });
-                }
-            }
-        }
+        // Store every empty square so we know where we can teleport
+        List<int[]> empties = new ArrayList<>();
+        for (int i = 0; i < R; i++)
+            for (int j = 0; j < C; j++)
+                if (grid[i][j] == 0) empties.add(new int[]{i, j});
 
-        boolean[][][] visited = new boolean[rows][cols][2];
-        Queue<State> queue = new LinkedList<>();
-        queue.offer(new State(0, 0, false, 0));
-        visited[0][0][0] = true;
+        // visited[row][col][tpState]   tpState = 0 (not used) or 1 (used)
+        boolean[][][] vis = new boolean[R][C][2];
+        Queue<Node> q = new LinkedList<>();
+        q.add(new Node(0, 0, false, 0));
+        vis[0][0][0] = true;
 
-        int[][] directions = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
+        int[][] dir = {{1,0}, {-1,0}, {0,1}, {0,-1}};   // down, up, right, left
 
-        while (!queue.isEmpty()) {
-            State current = queue.poll();
-            int r = current.row, c = current.col;
+        while (!q.isEmpty()) {
+            Node cur = q.poll();
 
-            if (r == rows - 1 && c == cols - 1) {
-                return current.distance;
-            }
+            // reached goal
+            if (cur.r == R - 1 && cur.c == C - 1) return cur.dist;
 
-            // Move to adjacent cells
-            for (int[] d : directions) {
-                int nr = r + d[0], nc = c + d[1];
-                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && grid[nr][nc] == 0) {
-                    int teleState = current.teleportUsed ? 1 : 0;
-                    if (!visited[nr][nc][teleState]) {
-                        visited[nr][nc][teleState] = true;
-                        queue.offer(new State(nr, nc, current.teleportUsed, current.distance + 1));
+            // move to 4 neighbours
+            for (int[] d : dir) {
+                int nr = cur.r + d[0], nc = cur.c + d[1];
+                if (nr >= 0 && nr < R && nc >= 0 && nc < C && grid[nr][nc] == 0) {
+                    int t = cur.tp ? 1 : 0;
+                    if (!vis[nr][nc][t]) {
+                        vis[nr][nc][t] = true;
+                        q.add(new Node(nr, nc, cur.tp, cur.dist + 1));
                     }
                 }
             }
 
-            // Teleport if not used
-            if (!current.teleportUsed) {
-                for (int[] cell : emptyCells) {
+            // try the one-time teleport
+            if (!cur.tp) {
+                for (int[] cell : empties) {
                     int tr = cell[0], tc = cell[1];
-                    if (tr == r && tc == c)
-                        continue; // skip current cell
-                    if (!visited[tr][tc][1]) {
-                        visited[tr][tc][1] = true;
-                        queue.offer(new State(tr, tc, true, current.distance + 1));
+                    if (tr == cur.r && tc == cur.c) continue;   // already here
+                    if (!vis[tr][tc][1]) {
+                        vis[tr][tc][1] = true;
+                        q.add(new Node(tr, tc, true, cur.dist + 1));
                     }
                 }
             }
         }
-
-        return -1; // no path found
+        return -1;   // goal never reached
     }
 
-    // Sample test cases
+    // Simple tests
     public static void main(String[] args) {
-        int[][] grid1 = {
-                { 0, 0, 1, 0 },
-                { 1, 0, 1, 0 },
-                { 1, 0, 0, 0 },
-                { 1, 1, 1, 0 }
+        int[][] g1 = {
+                {0, 0, 1, 0},
+                {1, 0, 1, 0},
+                {1, 0, 0, 0},
+                {1, 1, 1, 0}
         };
-        System.out.println("Shortest path grid1: " + shortestPath(grid1)); // Expected: 5
-
-        int[][] grid2 = {
-                { 0, 1, 1 },
-                { 1, 1, 1 },
-                { 1, 1, 0 }
+        int[][] g2 = {
+                {0, 1, 1},
+                {1, 1, 1},
+                {1, 1, 0}
         };
-        System.out.println("Shortest path grid2: " + shortestPath(grid2)); // Expected: -1 (no path)
-
-        int[][] grid3 = {
-                { 0, 0, 0 },
-                { 0, 1, 0 },
-                { 0, 0, 0 }
+        int[][] g3 = {
+                {0, 0, 0},
+                {0, 1, 0},
+                {0, 0, 0}
         };
-        System.out.println("Shortest path grid3: " + shortestPath(grid3)); // Expected: 4
+        System.out.println(shortest(g1)); // 5
+        System.out.println(shortest(g2)); // -1
+        System.out.println(shortest(g3)); // 4
     }
 }
